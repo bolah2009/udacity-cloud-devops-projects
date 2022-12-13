@@ -6,5 +6,13 @@
   {
     "ParameterKey": "VpcCIDR",
     "ParameterValue": "10.0.0.0/16"
+  },
+  {
+    "ParameterKey": "BolaPublicSubnetCIDR",
+    "ParameterValue": "10.0.0.0/16"
+  },
+  {
+    "ParameterKey": "BolaPrivateSubnetCIDR",
+    "ParameterValue": "10.0.0.0/16"
   }
 ]

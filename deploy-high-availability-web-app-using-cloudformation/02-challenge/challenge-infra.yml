@@ -7,9 +7,17 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
     Default: 10.0.0.0/16
+  BolaPublicSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet
+    Type: String
+    Default: 10.0.0.0/24
+  BolaPrivateSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet
+    Type: String
+    Default: 10.0.2.0/24
 
 Resources:
-  VPC:
+  BolaVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref VpcCIDR
@@ -19,9 +27,31 @@ Resources:
           Value: !Ref EnvironmentName
         - Key: Description
           Value: !Sub ${EnvironmentName} EC2 VPC for Udacity Challenge
-  InternetGateway:
+  BolaInternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
           Value: !Ref EnvironmentName
+
+  BolaPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref BolaPublicSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet
+
+  BolaPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref BolaPrivateSubnetCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet
