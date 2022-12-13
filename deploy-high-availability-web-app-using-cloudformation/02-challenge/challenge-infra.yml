@@ -84,3 +84,25 @@ Resources:
         - Key: Description
           Value: 'NAT to be used by servers in the private subnet'
 
+  BolaPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BolaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachInternetGW
+    Properties:
+      RouteTableId: !Ref BolaPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref BolaInternetGW
+
+  BolaPublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPublicRouteTable
+      SubnetId: !Ref BolaPublicSubnet
+
