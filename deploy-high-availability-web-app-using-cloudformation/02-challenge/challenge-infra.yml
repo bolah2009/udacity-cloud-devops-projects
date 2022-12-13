@@ -126,3 +126,34 @@ Resources:
     Properties:
       RouteTableId: !Ref BolaPrivateRouteTable
       SubnetId: !Ref BolaPrivateSubnet
+
+Outputs:
+  BolaVPC:
+    Description: A reference to the created VPC
+    Value: !Ref BolaVPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPCID
+
+  BolaPublicRouteTable:
+    Description: Public Routing
+    Value: !Ref BolaPublicRouteTable
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB-RT
+
+  BolaPrivateRouteTable:
+    Description: Private Routing
+    Value: !Ref BolaPrivateRouteTable
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-RT
+
+  BolaPublicSubnet:
+    Description: A reference to the public subnet.
+    Value: !Ref BolaPublicSubnet
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB1-SN
+
+  BolaPrivateSubnet:
+    Description: A reference to the private subnet.
+    Value: !Ref BolaPrivateSubnet
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-SN
