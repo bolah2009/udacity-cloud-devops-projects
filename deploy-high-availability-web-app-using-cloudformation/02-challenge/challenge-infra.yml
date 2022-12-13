@@ -106,3 +106,23 @@ Resources:
       RouteTableId: !Ref BolaPublicRouteTable
       SubnetId: !Ref BolaPublicSubnet
 
+  BolaPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BolaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes
+
+  BolaDefaultPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  BolaPrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable
+      SubnetId: !Ref BolaPrivateSubnet
