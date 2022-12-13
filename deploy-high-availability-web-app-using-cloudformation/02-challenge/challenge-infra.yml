@@ -1,8 +1,9 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates the required network infrastructure for Public and Private routing with Internet access
 Parameters:
   EnvironmentName:
     Description: An environment name that will be prefixed to resource names
     Type: String
-
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
@@ -10,7 +11,7 @@ Parameters:
   BolaPublicSubnetCIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet
     Type: String
-    Default: 10.0.0.0/24
+    Default: 10.0.1.0/24
   BolaPrivateSubnetCIDR:
     Description: Please enter the IP range (CIDR notation) for the private subnet
     Type: String
@@ -21,18 +22,23 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref VpcCIDR
-      EnableDnsHostnames: true
       Tags:
         - Key: Name
           Value: !Ref EnvironmentName
         - Key: Description
-          Value: !Sub ${EnvironmentName} EC2 VPC for Udacity Challenge
-  BolaInternetGateway:
+          Value: !Sub ${EnvironmentName} EC2 VPC for Udacity Challenge Two
+  BolaInternetGW:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: !Ref EnvironmentName
+          Value: !Sub ${EnvironmentName} Internet Gateway
+
+  AttachInternetGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref BolaInternetGW
+      VpcId: !Ref BolaVPC
 
   BolaPublicSubnet:
     Type: AWS::EC2::Subnet
@@ -55,3 +61,26 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${EnvironmentName} Private Subnet
+
+  NatGWEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: BolaInternetGW
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Elastic IP
+        - Key: Description
+          Value: !Sub ${EnvironmentName} Elastic IP for our NAT Gateway
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGWEIP.AllocationId
+      SubnetId: !Ref BolaPublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Nat Gateway
+        - Key: Description
+          Value: 'NAT to be used by servers in the private subnet'
+
