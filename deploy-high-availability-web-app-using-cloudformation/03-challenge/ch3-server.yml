@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploys a Linux server in a private subnet.
+
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+  BolaEC2AMI:
+    Description: AMI to use for our base image
+    Type: String
+  BolaDBUsername:
+    Description: Any username with only alphabet and underscore (_)
+    Type: String
+  BolaDBPassword:
+    Description: A password with at least 8 characters
+    Type: String
+
+Resources:
+  BolaRoleForSSMAccess:
+    Type: 'AWS::IAM::Role'
+
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} BolaRoleForSSMAccess
+        - Key: Description
+          Value: IAM Role to allow EC2 Session Manager to access our server
+
+  BolaServerInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref BolaRoleForSSMAccess
+
+  BolaWebAccessSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our test host
+      VpcId:
+        Fn::ImportValue:
+          Fn::Sub: '${EnvironmentName}-VPCID'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  BolaServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: !Ref BolaEC2AMI
+      IamInstanceProfile: !Ref BolaServerInstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: 'true'
+          DeviceIndex: '0'
+          GroupSet:
+            - Ref: 'BolaWebAccessSecurityGroup'
+          SubnetId:
+            Fn::ImportValue:
+              Fn::Sub: '${EnvironmentName}-PRI1-SN'
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} EC2
+        - Key: Description
+          Value: !Sub EC2 Instance for ${EnvironmentName}, in a private subnet.
+
+  BolaDBSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: 'Subnets to use for the DB'
+      DBSubnetGroupName: 'Subnet Group'
+      SubnetIds:
+        - Fn::ImportValue:
+            Fn::Sub: '${EnvironmentName}-PRI1-SN'
+        - Fn::ImportValue:
+            Fn::Sub: '${EnvironmentName}-PRI2-SN'
+
+  BolaDB:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      # Replace this ID, as applicable to you. I have used the default SG.
+      VPCSecurityGroups:
+        - Ref: 'BolaWebAccessSecurityGroup'
+      PubliclyAccessible: false
+      MultiAZ: false
+      AllocatedStorage: 10
+      DBInstanceClass: db.t2.small
+      Engine: 'mysql'
+      MasterUsername: !Sub '${BolaDBUsername}'
+      MasterUserPassword: !Sub '${BolaDBPassword}'
+      DBSubnetGroupName: !Ref BolaDBSubnetGroup
+      Tags:
+        - Key: 'Name'
+          Value: !Sub '${EnvironmentName} MS SQL RDS'
+    DeletionPolicy: 'Retain'
+
+Outputs:
+  BolaServerInstance:
+    Description: Server Instance in private subnet
+    Value: !Ref BolaServerInstance
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-EC2
+
+  BolaWebAccessSecurityGroup:
+    Description: A reference to the web server security group that allows inbound port 80 access, for future use
+    Value: !Ref BolaWebAccessSecurityGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-WS-SG
+
+  BolaDBSubnetGroup:
+    Description: A reference to the RDS DB subnet group
+    Value: !Ref BolaDBSubnetGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-RDS-DB-SG
+
+  BolaDB:
+    Description: A reference to the RDS DB
+    Value: !Ref BolaDB
+    Export:
+      Name: !Sub ${EnvironmentName}-RDS-DB

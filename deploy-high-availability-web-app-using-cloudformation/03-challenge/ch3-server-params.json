@@ -1,0 +1,18 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "BolaCha3Udacity"
+  },
+  {
+    "ParameterKey": "BolaEC2AMI",
+    "ParameterValue": "ami-047a51fa27710816e"
+  },
+  {
+    "ParameterKey": "BolaDBUsername",
+    "ParameterValue": "bola_rds_db"
+  },
+  {
+    "ParameterKey": "BolaDBPassword",
+    "ParameterValue": "test_pass_word"
+  }
+]

@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates the required network infrastructure for Public and Private routing with Internet access
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.0.0.0/16
+  BolaPublicSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet
+    Type: String
+    Default: 10.0.1.0/24
+  BolaPrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet
+    Type: String
+    Default: 10.0.2.0/24
+  BolaPrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet
+    Type: String
+    Default: 10.0.3.0/24
+
+Resources:
+  BolaVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+        - Key: Description
+          Value: !Sub ${EnvironmentName} EC2 VPC for Udacity Challenge Two
+  BolaInternetGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Internet Gateway
+
+  AttachInternetGW:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref BolaInternetGW
+      VpcId: !Ref BolaVPC
+
+  BolaPublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref BolaPublicSubnetCIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet
+
+  BolaPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref BolaPrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet for AZ 1
+
+  BolaPrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref BolaPrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet for AZ 2
+
+  NatGWEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: BolaInternetGW
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Elastic IP
+        - Key: Description
+          Value: !Sub ${EnvironmentName} Elastic IP for our NAT Gateway
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGWEIP.AllocationId
+      SubnetId: !Ref BolaPublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Nat Gateway
+        - Key: Description
+          Value: 'NAT to be used by servers in the private subnet'
+
+  BolaPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BolaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachInternetGW
+    Properties:
+      RouteTableId: !Ref BolaPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref BolaInternetGW
+
+  BolaPublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPublicRouteTable
+      SubnetId: !Ref BolaPublicSubnet
+
+  BolaPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BolaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes
+
+  BolaDefaultPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  BolaPrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable
+      SubnetId: !Ref BolaPrivateSubnet1
+
+Outputs:
+  BolaVPC:
+    Description: A reference to the created VPC
+    Value: !Ref BolaVPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPCID
+
+  BolaPublicRouteTable:
+    Description: Public Routing
+    Value: !Ref BolaPublicRouteTable
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB-RT
+
+  BolaPrivateRouteTable:
+    Description: Private Routing
+    Value: !Ref BolaPrivateRouteTable
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-RT
+
+  BolaPublicSubnet:
+    Description: A reference to the public subnet.
+    Value: !Ref BolaPublicSubnet
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB1-SN
+
+  BolaPrivateSubnet1:
+    Description: A reference to the private subnet.
+    Value: !Ref BolaPrivateSubnet1
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-SN
+
+  BolaPrivateSubnet2:
+    Description: A reference to the private subnet.
+    Value: !Ref BolaPrivateSubnet2
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI2-SN

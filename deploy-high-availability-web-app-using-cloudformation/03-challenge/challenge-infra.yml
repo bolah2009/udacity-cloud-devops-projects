@@ -1,0 +1,299 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates the required network infrastructure for Public and Private routing with Internet access
+Parameters:
+  EnvironmentName:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+  VpcCIDR:
+    Description: Please enter the IP range (CIDR notation) for this VPC
+    Type: String
+    Default: 10.0.0.0/16
+  BolaPublicSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet
+    Type: String
+    Default: 10.0.0.0/24
+  BolaPublicSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet
+    Type: String
+    Default: 10.0.1.0/24
+  BolaPrivateSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet
+    Type: String
+    Default: 10.0.2.0/24
+  BolaPrivateSubnet2CIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet
+    Type: String
+    Default: 10.0.3.0/24
+
+Resources:
+  BolaVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+        - Key: Description
+          Value: !Sub ${EnvironmentName} EC2 VPC for Udacity Challenge Three
+  BolaInternetGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Internet Gateway
+
+  BolaInternetGWAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref BolaInternetGW
+      VpcId: !Ref BolaVPC
+
+  BolaPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref BolaPublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ1)
+
+  BolaPublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref BolaPublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Subnet (AZ2)
+
+  BolaPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: !Ref BolaPrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+
+  BolaPrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref BolaVPC
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: !Ref BolaPrivateSubnet2CIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
+
+  BolaNatGWEIP1:
+    Type: AWS::EC2::EIP
+    DependsOn: BolaInternetGWAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Elastic IP 1
+        - Key: Description
+          Value: !Sub ${EnvironmentName} Elastic IP for our NAT Gateway 1
+
+  BolaNatGWEIP2:
+    Type: AWS::EC2::EIP
+    DependsOn: BolaInternetGWAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Elastic IP 2
+        - Key: Description
+          Value: !Sub ${EnvironmentName} Elastic IP for our NAT Gateway 2
+
+  BolaNatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt BolaNatGWEIP1.AllocationId
+      SubnetId: !Ref BolaPublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Nat Gateway
+        - Key: Description
+          Value: 'NAT to be used by servers in the public subnet 1'
+
+  BolaNatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt BolaNatGWEIP2.AllocationId
+      SubnetId: !Ref BolaPublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Nat Gateway
+        - Key: Description
+          Value: 'NAT to be used by servers in the public subnet 2'
+
+  BolaPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BolaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Public Routes
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: BolaInternetGWAttachment
+    Properties:
+      RouteTableId: !Ref BolaPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref BolaInternetGW
+
+  BolaPublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPublicRouteTable
+      SubnetId: !Ref BolaPublicSubnet1
+
+  BolaPublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPublicRouteTable
+      SubnetId: !Ref BolaPublicSubnet2
+
+  BolaPrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BolaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
+
+  BolaDefaultPrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref BolaNatGateway1
+
+  BolaPrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable1
+      SubnetId: !Ref BolaPrivateSubnet1
+
+  BolaPrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref BolaVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+
+  BolaDefaultPrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref BolaNatGateway2
+
+  BolaPrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref BolaPrivateRouteTable2
+      SubnetId: !Ref BolaPrivateSubnet2
+
+  BolaWebServerSecGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to our hosts and SSH from local only
+      VpcId: !Ref BolaVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} WebServerSecurityGroup
+        - Key: Description
+          Value: !Sub ${EnvironmentName} Web Server Security Group
+
+Outputs:
+  BolaVPC:
+    Description: A reference to the created VPC
+    Value: !Ref BolaVPC
+    Export:
+      Name: !Sub ${EnvironmentName}-VPCID
+
+  BolaPublicRouteTable:
+    Description: Public Routing
+    Value: !Ref BolaPublicRouteTable
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB-RT
+
+  BolaPrivateRouteTable1:
+    Description: Private Routing AZ1
+    Value: !Ref BolaPrivateRouteTable1
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-RT
+
+  BolaPrivateRouteTable2:
+    Description: Private Routing AZ2
+    Value: !Ref BolaPrivateRouteTable2
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI2-RT
+
+  BolaPublicSubnets:
+    Description: A list of the public subnets
+    Value: !Join [',', [!Ref BolaPublicSubnet1, !Ref BolaPublicSubnet2]]
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB-NETS
+
+  BolaPrivateSubnets:
+    Description: A list of the private subnets
+    Value: !Join [',', [!Ref BolaPrivateSubnet1, !Ref BolaPrivateSubnet2]]
+    Export:
+      Name: !Sub ${EnvironmentName}-PRIV-NETS
+
+  BolaPublicSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref BolaPublicSubnet1
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB1-SN
+
+  BolaPublicSubnet2:
+    Description: A reference to the public subnet in the 2nd Availability Zone
+    Value: !Ref BolaPublicSubnet2
+    Export:
+      Name: !Sub ${EnvironmentName}-PUB2-SN
+
+  BolaPrivateSubnet1:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref BolaPrivateSubnet1
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI1-SN
+
+  BolaPrivateSubnet2:
+    Description: A reference to the private subnet in the 2nd Availability Zone
+    Value: !Ref BolaPrivateSubnet2
+    Export:
+      Name: !Sub ${EnvironmentName}-PRI2-SN
+
+  BolaWebServerSecGroup:
+    Description: A reference to the web server security group that allows http to our hosts and SSH from local only
+    Value: !Ref BolaWebServerSecGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-WS-SG

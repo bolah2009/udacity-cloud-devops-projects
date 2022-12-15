@@ -1,0 +1,10 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "ChallengeThreeBolaUdacityProject"
+  },
+  {
+    "ParameterKey": "BolaWebAppLaunchTemplateVersionNumber",
+    "ParameterValue": "1"
+  }
+]
