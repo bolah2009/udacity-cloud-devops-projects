@@ -1,26 +1,30 @@
 [
-	{
-		"ParameterKey": "EnvironmentName",
-		"ParameterValue": "BolaUdagram"
-	},
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "BolaUdagram"
+  },
   {
     "ParameterKey": "VpcCIDR",
     "ParameterValue": "10.0.0.0/16"
   },
-	{
-		"ParameterKey": "BolaPublicSN1CIDR",
-		"ParameterValue": "10.0.0.0/24"
-	},
-	{
-		"ParameterKey": "BolaPublicSN2CIDR",
-		"ParameterValue": "10.0.1.0/24"
-	},
-	{
-		"ParameterKey": "BolaPrivateSN1CIDR",
-		"ParameterValue": "10.0.2.0/24"
-	},
-	{
-		"ParameterKey": "BolaPrivateSN2CIDR",
-		"ParameterValue": "10.0.3.0/24"
-	}
+  {
+    "ParameterKey": "BolaPublicSN1CIDR",
+    "ParameterValue": "10.0.0.0/24"
+  },
+  {
+    "ParameterKey": "BolaPublicSN2CIDR",
+    "ParameterValue": "10.0.1.0/24"
+  },
+  {
+    "ParameterKey": "BolaPrivateSN1CIDR",
+    "ParameterValue": "10.0.2.0/24"
+  },
+  {
+    "ParameterKey": "BolaPrivateSN2CIDR",
+    "ParameterValue": "10.0.3.0/24"
+  },
+  {
+    "ParameterKey": "BolaAMI",
+    "ParameterValue": "ami-0574da719dca65348"
+  }
 ]
