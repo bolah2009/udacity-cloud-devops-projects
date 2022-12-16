@@ -35,7 +35,61 @@ Parameters:
     Description: Please enter the AMI for Launch Configuration
     Type: String
 
+  BolaS3BucketName:
+    Description: Please enter the S3 bucket name for copying the web content
+    Type: String
+
 Resources:
+  # IAM User credentials with s3 access
+  # CfnUser:
+  #   Type: AWS::IAM::User
+  #   Properties:
+  #     Path: "/"
+  #     Policies:
+  #       - PolicyName: root
+  #         PolicyDocument:
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - cloudformation:DescribeStackResource
+  #                   s3:GetObject
+  #               Resource: '*'
+
+  # CfnKeys:
+  #   Type: AWS::IAM::AccessKey
+  #   Properties:
+  #     UserName: !Ref CfnUser
+
+  # BolaBucketPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     PolicyDocument:
+  #       Version: 2008-10-17
+  #       Id: MyPolicy
+  #       Statement:
+  #         - Sid: ReadAccess
+  #           Action: [s3:GetObject]
+  #           Effect: Allow
+  #           Resource:
+  #             Fn::Join:
+  #               - ''
+  #               - - 'arn:aws:s3::'
+  #                 - Ref: BolaS3BucketName
+  #                 - '/*'
+  #           Principal:
+  #             AWS: !GetAtt CfnUser.Arn
+  #     Bucket: !Ref BolaS3BucketName
+
+  # WaitHandle:
+  #   Type: AWS::CloudFormation::WaitConditionHandle
+
+  # WaitCondition:
+  #   Type: AWS::CloudFormation::WaitCondition
+  #   DependsOn: BolaWebAppLaunchConfig
+  #   Properties:
+  #     Handle: !Ref WaitHandle
+  #     Timeout: '300'
+
   # Networking
   BolaVPC:
     Type: AWS::EC2::VPC
@@ -268,16 +322,32 @@ Resources:
 
   BolaWebAppLaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
+    Metadata:
+      AWS::CloudFormation::Init:
+        sources:
+          /var/www/html:
+            Fn::Join:
+              - ''
+              - - 'https://'
+                - Ref: BolaS3BucketName
+                - '.s3.amazonaws.com/archive.zip'
+      # AWS::CloudFormation::Authentication:
+      #   S3AccessCreds:
+      #     type: "S3"
+      #     accessKeyId: !Ref CfnKeys
+      #     secretKey: !GetAtt CfnKeys.SecretAccessKey
+      #     buckets: [ !Ref BolaS3BucketName ]
+
     Properties:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           apt-get update -y
           apt-get install apache2 -y
+          apt-get install awscli -y
           systemctl start apache2.service
-          cd /var/www/html
-          echo "Bola Udagram Web Server is Up and Running!" > index.html
       ImageId: !Ref BolaAMI
+      IamInstanceProfile: !Ref BolaServerInstanceProfile
       KeyName: bola_udagram
       SecurityGroups:
         - Ref: BolaWebServerSG
@@ -304,18 +374,15 @@ Resources:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
       VPCZoneIdentifier:
-        - !Join [
-            ',',
-            [!Ref BolaPrivateSN1, !Ref BolaPrivateSN2, !Ref BolaPublicSN1],
-          ]
-      LaunchConfigurationName:
-        Ref: BolaWebAppLaunchConfig
+        - !Join [',', [!Ref BolaPublicSN1, !Ref BolaPublicSN2]]
+      LaunchConfigurationName: !Ref BolaWebAppLaunchConfig
       MinSize: '2'
       MaxSize: '3'
       TargetGroupARNs:
         - Ref: BolaWebAppTG
 
   BolaWebAppELB:
+    DependsOn: [BolaInternetGW]
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       Subnets:
@@ -329,11 +396,9 @@ Resources:
     Properties:
       DefaultActions:
         - Type: forward
-          TargetGroupArn:
-            Ref: BolaWebAppTG
-      LoadBalancerArn:
-        Ref: BolaWebAppELB
-      Port: '80'
+          TargetGroupArn: !Ref BolaWebAppTG
+      LoadBalancerArn: !Ref BolaWebAppELB
+      Port: 80
       Protocol: HTTP
 
   BolaELBListenerRule:
