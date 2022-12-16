@@ -1,0 +1,17 @@
+{
+  "name": "udacity-cloud-devops-projects",
+  "version": "0.1.0",
+  "engines": {
+    "node": "16 || 18"
+  },
+  "scripts": {
+    "format": "prettier --write \"**/*.{json,md,yaml,yml,sh,gitignore}\"",
+    "format:check": "prettier --check \"**/*.{json,md,yaml,yml,sh,gitignore}\""
+  },
+  "devDependencies": {
+    "@spotify/prettier-config": "^14.x",
+    "prettier": "^2.7.1",
+    "prettier-plugin-sh": "^0.12.8"
+  },
+  "prettier": "@spotify/prettier-config"
+}

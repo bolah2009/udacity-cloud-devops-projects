@@ -7,20 +7,20 @@
     "ParameterKey": "VpcCIDR",
     "ParameterValue": "10.0.0.0/16"
   },
-	{
-		"ParameterKey": "BolaPublicSubnet1CIDR",
-		"ParameterValue": "10.0.0.0/24"
-	},
-	{
-		"ParameterKey": "BolaPublicSubnet2CIDR",
-		"ParameterValue": "10.0.1.0/24"
-	},
-	{
-		"ParameterKey": "BolaPrivateSubnet1CIDR",
-		"ParameterValue": "10.0.2.0/24"
-	},
-	{
-		"ParameterKey": "BolaPrivateSubnet2CIDR",
-		"ParameterValue": "10.0.3.0/24"
-	}
+  {
+    "ParameterKey": "BolaPublicSubnet1CIDR",
+    "ParameterValue": "10.0.0.0/24"
+  },
+  {
+    "ParameterKey": "BolaPublicSubnet2CIDR",
+    "ParameterValue": "10.0.1.0/24"
+  },
+  {
+    "ParameterKey": "BolaPrivateSubnet1CIDR",
+    "ParameterValue": "10.0.2.0/24"
+  },
+  {
+    "ParameterKey": "BolaPrivateSubnet2CIDR",
+    "ParameterValue": "10.0.3.0/24"
+  }
 ]

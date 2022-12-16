@@ -1,0 +1,19 @@
+name: Checks
+
+on: [pull_request, push]
+
+jobs:
+  prettier:
+    name: Prettier
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v3
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      - name: Run Prettier
+        run: |
+          yarn
+          yarn format:check

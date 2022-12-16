@@ -1,0 +1,24 @@
+/.bundle/
+/.yardoc
+/_yardoc/
+.DS_Store
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+/tmp/
+
+.rspec_status
+.terraform
+.terraform.lock.hcl
+.env
+/log/*.log
+
+# Ignore bundler config.
+/.bundle
+vendor/bundle
+vendor/cache
+
+test-deeply-nested-files-and-folders
+yarn-error.log
+node_modules/
