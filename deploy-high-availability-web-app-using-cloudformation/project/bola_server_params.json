@@ -26,5 +26,9 @@
   {
     "ParameterKey": "BolaAMI",
     "ParameterValue": "ami-0574da719dca65348"
+  },
+  {
+    "ParameterKey": "BolaS3BucketName",
+    "ParameterValue": "bola-udagram-bucket"
   }
 ]
