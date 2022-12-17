@@ -12,6 +12,7 @@
 .terraform
 .terraform.lock.hcl
 .env
+*.pem
 /log/*.log
 
 # Ignore bundler config.

@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "BolaUdagram"
+  },
+  {
+    "ParameterKey": "VpcCIDR",
+    "ParameterValue": "10.0.0.0/16"
+  },
+  {
+    "ParameterKey": "BolaPublicSN1CIDR",
+    "ParameterValue": "10.0.0.0/24"
+  },
+  {
+    "ParameterKey": "BolaPublicSN2CIDR",
+    "ParameterValue": "10.0.1.0/24"
+  },
+  {
+    "ParameterKey": "BolaPublicSN3CIDR",
+    "ParameterValue": "10.0.2.0/24"
+  },
+  {
+    "ParameterKey": "BolaAMI",
+    "ParameterValue": "ami-0b5eea76982371e91"
+  }
+]
