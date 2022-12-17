@@ -58,7 +58,7 @@ jobs:
           name: Create Cloudformation Stack
           command: |
             aws cloudformation deploy \
-              --template-file 03-auto-deploy-monitoring-logging/rollback/template.yml \
+              --template-file 03-auto-deploy-monitoring-logging/ci_cd/template.yml \
               --stack-name ci-stack-${CIRCLE_WORKFLOW_ID:0:5} \
               --region us-east-1
       - run:
@@ -84,11 +84,11 @@ jobs:
           command: |
             PublicIp="$(scripts/get-stack.sh ci-stack-${CIRCLE_WORKFLOW_ID:0:5} EC2InstancePublicIp)"
             echo $PublicIp
-            echo $PublicIp >> 03-auto-deploy-monitoring-logging/rollback/inventory
+            echo $PublicIp >> 03-auto-deploy-monitoring-logging/ci_cd/inventory
       - run:
           name: Run Playbook and Configure server
           command: |
-            cd 03-auto-deploy-monitoring-logging/rollback
+            cd 03-auto-deploy-monitoring-logging/ci_cd
             ansible-playbook -i inventory main.yml
       - destroy_environment
 
@@ -124,7 +124,7 @@ jobs:
       - run:
           name: Create Cloudformation Stack for S3 bucket
           command: |
-            cd 03-auto-deploy-monitoring-logging/rollback
+            cd 03-auto-deploy-monitoring-logging/ci_cd
             aws cloudformation deploy \
             --template-file bucket.yml \
             --stack-name bolas3udabucket-stack \
@@ -132,7 +132,7 @@ jobs:
       - run:
           name: Create Cloudformation Stack for S3 bucket
           command: |
-            cd 03-auto-deploy-monitoring-logging/rollback
+            cd 03-auto-deploy-monitoring-logging/ci_cd
             aws s3 sync webfiles/. s3://bola-bucket-${CIRCLE_WORKFLOW_ID:0:5} --delete
 
   promote_to_production:
@@ -143,11 +143,24 @@ jobs:
       - run:
           name: Execute cloudfront.yml
           command: |
-            cd 03-auto-deploy-monitoring-logging/rollback
+            cd 03-auto-deploy-monitoring-logging/ci_cd
             aws cloudformation deploy \
             --template-file cloudfront.yml \
             --stack-name production-distro \
             --parameter-overrides S3BucketId="bola-bucket-${CIRCLE_WORKFLOW_ID:0:5}"
+
+  create_prometheus_instance:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Creat Prometheus Instance
+          command: |
+            cd 03-auto-deploy-monitoring-logging/monitoring_and_logging
+            aws cloudformation deploy \
+            --template-file template.yml \
+            --stack-name prometheus-node-exporter
 
 workflows:
   pr-workflow:
@@ -156,6 +169,7 @@ workflows:
       - check_format:
           requires:
             - install_packages
+      - create_prometheus_instance
       - create_infrastructure:
           requires:
             - check_format
