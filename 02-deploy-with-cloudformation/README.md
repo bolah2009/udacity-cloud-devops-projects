@@ -1,4 +1,4 @@
-# CloudFormation
+# 02-deploy-with-cloudformation
 
 ## Challenge One
 

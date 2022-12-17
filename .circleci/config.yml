@@ -1,0 +1,45 @@
+version: 2.1
+
+jobs:
+  install-packages:
+    docker:
+      - image: cimg/node:16.18 # https://circleci.com/developer/images/image/cimg/node#variants
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-deps-{{ checksum "yarn.lock" }}
+            - v1-deps-
+      - run:
+          name: 'Install packages'
+          command: |
+            yarn install
+      - save_cache:
+          key: v1-deps-{{ checksum "yarn.lock" }}
+          paths:
+            - node_modules
+
+  check-format:
+    docker:
+      - image: cimg/node:16.18
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-deps-{{ checksum "yarn.lock" }}
+            - v1-deps-
+      - run:
+          name: 'Check format'
+          command: |
+            yarn format:check
+      - save_cache:
+          key: v1-deps-{{ checksum "yarn.lock" }}
+          paths:
+            - node_modules
+workflows:
+  pr-workflow:
+    jobs:
+      - install-packages
+      - check-format:
+          requires:
+            - install-packages
