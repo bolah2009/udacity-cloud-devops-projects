@@ -1,0 +1,10 @@
+---
+- name: 'Create a basic node server'
+  hosts: all
+  user: ubuntu
+  become: true
+  become_method: sudo
+  become_user: root
+  roles:
+    - prepare
+    - node

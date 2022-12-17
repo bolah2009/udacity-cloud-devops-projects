@@ -1,0 +1,23 @@
+---
+- name: 'Install dependencies'
+  become: true
+  apt:
+    name: [nodejs, npm]
+    state: latest
+    update_cache: yes
+
+- name: Install pm2 using npm.
+  npm:
+    name: pm2
+    global: true
+    state: latest
+
+- name: 'Add index.js file'
+  copy:
+    src: index.js
+    dest: ~/web/
+    backup: yes
+
+- name: Start the web server
+  command:
+    cmd: pm2 start ~/web/index.js -f
