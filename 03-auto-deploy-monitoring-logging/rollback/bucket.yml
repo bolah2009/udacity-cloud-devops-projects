@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create a new Bucket
+Parameters:
+  BolaS3BucketName:
+    Description: Existing Bucket name
+    Type: String
+
+Resources:
+  BolaS3WebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${BolaS3BucketName}'
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+
+  WebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref 'BolaS3WebsiteBucket'
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource:
+              !Join ['', ['arn:aws:s3:::', !Ref 'BolaS3WebsiteBucket', /*]]
+
+Outputs:
+  S3WebsiteURL:
+    Value: !GetAtt BolaS3WebsiteBucket.WebsiteURL
+    Description: URL for website hosted on S3
+  S3BucketSecureURL:
+    Value: !Join ['', ['https://', !GetAtt BolaS3WebsiteBucket.DomainName]]
+    Description: Name of S3 bucket to hold website content

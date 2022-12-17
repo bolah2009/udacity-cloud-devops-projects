@@ -111,7 +111,43 @@ jobs:
             else
               return 1
             fi
-      - destroy_environment
+      - run:
+          name: destroy environment
+          command: |
+            aws cloudformation delete-stack --stack-name ci-stack-${CIRCLE_WORKFLOW_ID:0:5}
+
+  create_and_deploy_front_end:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Create Cloudformation Stack for S3 bucket
+          command: |
+            cd 03-auto-deploy-monitoring-logging/rollback
+            aws cloudformation deploy \
+            --template-file bucket.yml \
+            --stack-name bolas3udabucket-stack \
+            --parameter-overrides BolaS3BucketName="bola-bucket-${CIRCLE_WORKFLOW_ID:0:5}"
+      - run:
+          name: Create Cloudformation Stack for S3 bucket
+          command: |
+            cd 03-auto-deploy-monitoring-logging/rollback
+            aws s3 sync webfiles/. s3://bola-bucket-${CIRCLE_WORKFLOW_ID:0:5} --delete
+
+  promote_to_production:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Execute cloudfront.yml
+          command: |
+            cd 03-auto-deploy-monitoring-logging/rollback
+            aws cloudformation deploy \
+            --template-file cloudfront.yml \
+            --stack-name production-distro \
+            --parameter-overrides S3BucketId="bola-bucket-${CIRCLE_WORKFLOW_ID:0:5}"
 
 workflows:
   pr-workflow:
@@ -120,10 +156,19 @@ workflows:
       - check_format:
           requires:
             - install_packages
-      - create_infrastructure
+      - create_infrastructure:
+          requires:
+            - check_format
       - configure_infrastructure:
           requires:
             - create_infrastructure
+      - create_and_deploy_front_end:
+          requires:
+            - check_format
+      - promote_to_production:
+          requires:
+            - create_and_deploy_front_end
       - smoke_test:
           requires:
             - configure_infrastructure
+            - promote_to_production

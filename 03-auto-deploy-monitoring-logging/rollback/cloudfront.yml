@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create a basic EC2 instance with SSH instance
+Parameters:
+  S3BucketId:
+    Description: Existing Bucket name
+    Type: String
+
+Resources:
+  CloudFrontOriginAccessIdentity:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: Origin Access Identity for Serverless Static Website
+
+  WebpageCDN:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Sub '${S3BucketId}.s3.amazonaws.com'
+            Id: webpage
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+        Enabled: True
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          ForwardedValues:
+            QueryString: False
+          TargetOriginId: webpage
+          ViewerProtocolPolicy: allow-all
+      Tags:
+        - Key: Name
+          Value: ProductionUdaDemo
+        - Key: Description
+          Value: CDN for UdaDemo
+
+Outputs:
+  S3BucketId:
+    Description: A reference to the name of the S3 bucket
+    Value: !Sub ${S3BucketId}
+    Export:
+      Name: S3BucketId
+
+  WebpageCDN:
+    Description: A reference to the created CloudFront Distribution
+    Value: !Ref WebpageCDN
+    Export:
+      Name: !Sub '${AWS::StackName}-WebpageCDN'
+
+  WebpageCDNDomainName:
+    Description: A reference to the created CloudFront Distribution DomainName
+    Value: !Join ['', ['http://', !GetAtt WebpageCDN.DomainName]]
+    Export:
+      Name: !Sub '${AWS::StackName}-CDN-DomainName'
