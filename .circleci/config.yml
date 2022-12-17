@@ -36,6 +36,20 @@ jobs:
           key: v1-deps-{{ checksum "yarn.lock" }}
           paths:
             - node_modules
+
+  create_infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Create Cloudformation Stack
+          command: |
+            aws cloudformation deploy \
+              --template-file 03-auto-deploy-monitoring-logging/rollback/template.yml \
+              --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
+              --region us-east-1
+
 workflows:
   pr-workflow:
     jobs:
@@ -43,3 +57,4 @@ workflows:
       - check-format:
           requires:
             - install-packages
+      - create_infrastructure
