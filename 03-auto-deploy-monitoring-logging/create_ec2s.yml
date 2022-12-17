@@ -201,10 +201,6 @@ Resources:
             #!/bin/bash
             apt-get update -y
             apt-get install awscli -y
-            apt-get install apache2 -y
-            systemctl start apache2.service
-            cd /var/www/html
-            echo "Bola Udacity Demo Web Server is Up and Running!" > index.html
         ImageId: !Ref BolaAMI
         SecurityGroupIds:
           - !GetAtt BolaWebServerSG.GroupId
@@ -213,7 +209,7 @@ Resources:
           - DeviceName: '/dev/sdk'
             Ebs:
               VolumeSize: 5
-        KeyName: udacity_demo_test
+        KeyName: udacity_key
 
   BolaEC21:
     DependsOn: BolaPublicSN1RouteTableAssociation
@@ -223,45 +219,13 @@ Resources:
       LaunchTemplate:
         LaunchTemplateName: BolaWebAppLaunchTemplate
         Version: !GetAtt BolaWebAppLaunchTemplate.LatestVersionNumber
-      # Tags:
-      #   - Key: Name
-      #     Value: UdaDemo1
-      #   - Key: Purpose
-      #     Value: WebServerGroup
-      #   - Key: Project
-      #     Value: Udacity
-
-  BolaEC22:
-    DependsOn: BolaPublicSN2RouteTableAssociation
-    Type: AWS::EC2::Instance
-    Properties:
-      SubnetId: !Ref BolaPublicSN2
-      LaunchTemplate:
-        LaunchTemplateName: BolaWebAppLaunchTemplate
-        Version: !GetAtt BolaWebAppLaunchTemplate.LatestVersionNumber
-      # Tags:
-      #   - Key: Name
-      #     Value: UdaDemo2
-      #   - Key: Purpose
-      #     Value: WebServerGroup
-      #   - Key: Project
-      #     Value: Udacity
-
-  BolaEC23:
-    DependsOn: BolaPublicSN3RouteTableAssociation
-    Type: AWS::EC2::Instance
-    Properties:
-      SubnetId: !Ref BolaPublicSN3
-      LaunchTemplate:
-        LaunchTemplateName: BolaWebAppLaunchTemplate
-        Version: !GetAtt BolaWebAppLaunchTemplate.LatestVersionNumber
-      # Tags:
-      #   - Key: Name
-      #     Value: UdaDemo3
-      #   - Key: Purpose
-      #     Value: WebServerGroup
-      #   - Key: Project
-      #     Value: Udacity
+      Tags:
+        - Key: Name
+          Value: UdaDemo1
+        - Key: Purpose
+          Value: WebServerGroup
+        - Key: Project
+          Value: Udacity
 
 Outputs:
   BolaVPC:

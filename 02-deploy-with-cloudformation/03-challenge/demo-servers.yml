@@ -54,7 +54,7 @@ Resources:
             cd /var/www/html
             echo "Bola Udacity Demo Web Server is Up and Running!" > index.html
         ImageId: ami-0574da719dca65348
-        KeyName: udacity_demo
+        KeyName: udacity_key
         SecurityGroupIds:
           - Fn::ImportValue: !Sub '${EnvironmentName}-WS-SG'
         InstanceType: t2.micro

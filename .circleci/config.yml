@@ -1,7 +1,19 @@
 version: 2.1
 
+orbs:
+  aws-cli: circleci/aws-cli@3.1.4
+
+commands:
+  destroy_environment:
+    steps:
+      - run:
+          name: Destroy environment
+          when: on_fail
+          command: |
+            aws cloudformation delete-stack --stack-name ci-stack-${CIRCLE_WORKFLOW_ID:0:5}
+
 jobs:
-  install-packages:
+  install_packages:
     docker:
       - image: cimg/node:16.18 # https://circleci.com/developer/images/image/cimg/node#variants
     steps:
@@ -19,7 +31,7 @@ jobs:
           paths:
             - node_modules
 
-  check-format:
+  check_format:
     docker:
       - image: cimg/node:16.18
     steps:
@@ -47,14 +59,20 @@ jobs:
           command: |
             aws cloudformation deploy \
               --template-file 03-auto-deploy-monitoring-logging/rollback/template.yml \
-              --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
+              --stack-name ci-stack-${CIRCLE_WORKFLOW_ID:0:5} \
               --region us-east-1
+      - run:
+          name: Check failure
+          when: on_fail
+          command: |
+            aws cloudformation describe-stack-events --stack-name ci-stack-${CIRCLE_WORKFLOW_ID:0:5} --max-items 2
 
   configure_infrastructure:
     docker:
       - image: python:3.7-alpine3.11
     steps:
       - checkout
+      - aws-cli/setup
       - add_ssh_keys:
           fingerprints: ['f7:6b:56:a9:38:8a:0b:f5:0d:ca:f8:f1:51:81:79:a5']
       - run:
@@ -62,20 +80,30 @@ jobs:
           command: |
             apk add --update ansible
       - run:
+          name: Add created public IP to inventory
+          command: |
+            PublicIp="$(scripts/get-stack.sh ci-stack-${CIRCLE_WORKFLOW_ID:0:5} EC2InstancePublicIp)"
+            echo $PublicIp
+            echo $PublicIp >> 03-auto-deploy-monitoring-logging/rollback/inventory
+      - run:
           name: Run Playbook and Configure server
           command: |
             cd 03-auto-deploy-monitoring-logging/rollback
             ansible-playbook -i inventory main.yml
+      - destroy_environment
 
   smoke_test:
     docker:
       - image: alpine:latest
     steps:
+      - checkout
+      - aws-cli/setup
       - run: apk add --update curl
       - run:
           name: smoke test
           command: |
-            URL="http://3.91.217.89:3000"
+            URL="$(scripts/get-stack.sh ci-stack-${CIRCLE_WORKFLOW_ID:0:5} EC2InstancePublicDnsName)"
+            echo $URL
             # Test if website exists
             if curl -s --head ${URL} 
             then
@@ -83,12 +111,19 @@ jobs:
             else
               return 1
             fi
+      - destroy_environment
 
 workflows:
   pr-workflow:
     jobs:
-      - install-packages
-      - check-format:
+      - install_packages
+      - check_format:
           requires:
-            - install-packages
-      - smoke_test
+            - install_packages
+      - create_infrastructure
+      - configure_infrastructure:
+          requires:
+            - create_infrastructure
+      - smoke_test:
+          requires:
+            - configure_infrastructure

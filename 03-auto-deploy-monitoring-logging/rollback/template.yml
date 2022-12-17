@@ -4,22 +4,99 @@ Resources:
   InstanceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: Enable SSH access via port 22
+      GroupDescription: Enable SSH access via port 22 and port 80
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
 
   EC2Instance:
     Type: 'AWS::EC2::Instance'
+    Metadata:
+      'AWS::CloudFormation::Init':
+        configSets:
+          InstallAndRun: [Install]
+        Install:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content: !Join
+                - ''
+                - - |
+                    [main]
+                  - stack=
+                  - !Ref 'AWS::StackId'
+                  - |+
+
+                  - region=
+                  - !Ref 'AWS::Region'
+                  - |+
+
+              mode: '000400'
+              owner: root
+              group: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content: !Join
+                - ''
+                - - |
+                    [cfn-auto-reloader-hook]
+                  - |
+                    triggers=post.update
+                  - >
+                    path=Resources.EC2Instance.Metadata.AWS::CloudFormation::Init
+                  - 'action=/opt/aws/bin/cfn-init -v '
+                  - '         --stack '
+                  - !Ref 'AWS::StackName'
+                  - '         --resource EC2Instance '
+                  - '         --configsets InstallAndRun '
+                  - '         --region '
+                  - !Ref 'AWS::Region'
+                  - |+
+
+                  - |
+                    runas=root
+              mode: '000400'
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: 'true'
+                ensureRunning: 'true'
+                files:
+                  - /etc/cfn/cfn-hup.conf
+                  - /etc/cfn/hooks.d/cfn-auto-reloader.conf
     Properties:
       SecurityGroups:
         - !Ref InstanceSecurityGroup
       KeyName: udacity_demo_test
-      ImageId: 'ami-0b5eea76982371e91'
-      InstanceType: t2.nano
+      ImageId: 'ami-0574da719dca65348'
+      InstanceType: t2.micro
       BlockDeviceMappings:
         - DeviceName: '/dev/sdk'
           Ebs:
             VolumeSize: 5
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-UdaDemo'
+        - Key: Purpose
+          Value: WebServerGroup
+        - Key: Project
+          Value: Udacity
+
+Outputs:
+  EC2InstancePublicIp:
+    Description: A reference to the created EC2 Instance PublicIP
+    Value: !GetAtt EC2Instance.PublicIp
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-PublicIP'
+
+  EC2InstancePublicDnsName:
+    Description: A reference to the created EC2 Instance PublicDNSName
+    Value: !Join ['', ['http://', !GetAtt EC2Instance.PublicDnsName]]
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-PublicDNSName'
