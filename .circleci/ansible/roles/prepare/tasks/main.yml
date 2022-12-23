@@ -1,0 +1,13 @@
+---
+- name: 'Install dependencies'
+  become: true
+  apt:
+    name: [nodejs, npm. python]
+    state: latest
+    update_cache: yes
+
+- name: Install pm2 using npm.
+  npm:
+    name: pm2
+    global: true
+    state: latest

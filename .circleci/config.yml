@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   slack: circleci/slack@4.12.0
+  aws-cli: circleci/aws-cli@3.1.4
 
 commands:
   destroy_environment:
@@ -218,41 +219,55 @@ jobs:
           frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
           backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
 
-  # configure-infrastructure:
-  #   docker:
-  #     # Docker image here that supports Ansible
-  #   steps:
-  #     # Checkout code from git
-  #     # Add ssh keys with fingerprint
-  #     # attach workspace
-  #     - run:
-  #         name: Install dependencies
-  #         command: |
-  #           # Your code here
-  #           exit 1
-  #     - run:
-  #         name: Configure server
-  #         command: |
-  #           # Your code here
-  #           exit 1
-  #     # Here's where you will add some code to rollback on failure
+  configure-infrastructure:
+    docker:
+      - image: python:3.7-alpine3.11
+    steps:
+      - checkout
+      - aws-cli/setup
+      - add_ssh_keys:
+          fingerprints: ['44:6a:93:fd:d0:c7:e9:5d:e9:46:4b:43:58:87:4d:ac']
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Show peristed file
+          command: |
+            cat project/.circleci/ansible/inventory.txt
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update ansible tar gzip
+      - run:
+          name: Configure server
+          command: |
+            cd .circleci/ansible
+            ansible-playbook -i inventory.txt configure-server.yml
+      - destroy_environment:
+          frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
+          backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
 
   # run-migrations:
   #   docker:
-  #     # Docker image here that supports NodeJS
+  #     - image: circleci/node:13.8.0
   #   steps:
-  #     # Checkout code from git
+  #     - checkout
+  #     - restore_cache:
+  #         keys: [backend-build]
   #     - run:
   #         name: Run migrations
   #         command: |
-  #           # Your code here
-  #           exit 1
+  #           cd backend
+  #           npm install
+  #           npm run migrations > migrations_dump.txt
   #     - run:
-  #         name: Send migration results to memstash
-  #         command: |
-  #           # Your code here
-  #           exit 1
-  #     # Here's where you will add some code to rollback on failure
+  #         name: Send migration status to memstash.io
+  #         command: |   
+  #             if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
+  #             then
+  #                 # If you are using memstash.io, generate the token "7933fe63-4687-4fa1-8426-aa25aa1730ec" on the website
+  #                 curl -H "Content-Type: text/plain" -H "token: 7933fe63-4687-4fa1-8426-aa25aa1730ec" --request PUT --data "1" https://api.memstash.io/values/migration_${CIRCLE_WORKFLOW_ID:0:7}
+  #             fi
+      # Here's where you will add some code to rollback on failure
 
   # deploy-frontend:
   #   docker:
@@ -374,8 +389,8 @@ workflows:
           # filters:
           #   branches:
           #     only: [test-feature-branch]
-      # - configure-infrastructure:
-      #     requires: [deploy-infrastructure]
+      - configure-infrastructure:
+          requires: [deploy-infrastructure]
       # - run-migrations:
       #     requires: [configure-infrastructure]
       # - deploy-frontend:
