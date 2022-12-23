@@ -12,6 +12,12 @@
     - ansible_stdout_callback: yaml
 
   pre_tasks:
+    - name: Wait 400 seconds for target connection to become reachable/usable
+      wait_for_connection:
+        delay: 120
+        sleep: 30
+        timeout: 400
+
     - name: 'Update apt packages'
       become: true
       become_method: sudo
@@ -22,10 +28,6 @@
       become: true
       apt:
         autoremove: yes
-
-    - name: 'wait 200 seconds for target connection to become reachable/usable.'
-      command:
-        cmd: sleep 200
 
   # Get the environment variables from CircleCI and add to the EC2 instance
   environment:
@@ -40,5 +42,4 @@
     - TYPEORM_MIGRATIONS_DIR: "{{ lookup('env', 'TYPEORM_MIGRATIONS_DIR')}}"
 
   roles:
-    - prepare
     - configure-server
