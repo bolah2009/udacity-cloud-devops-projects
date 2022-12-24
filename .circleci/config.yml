@@ -189,7 +189,7 @@ jobs:
             echo $BACKEND_IP
             echo $BACKEND_IP >> .circleci/ansible/inventory.txt
       - run:
-          name: Install Tar and gzip
+          name: Install dependencies
           command: |
             yum -y install tar gzip
       - persist_to_workspace:
@@ -257,7 +257,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install Tar and gzip
+          name: Install dependencies
           command: |
             yum -y install tar gzip curl
       - run:
@@ -325,13 +325,11 @@ jobs:
       - image: alpine:latest
     steps:
       - checkout
-      - node/install:
-          node-version: '13.8.0'
-      - aws-cli/setup
       - run:
           name: Install dependencies
           command: |
-            apk add --update curl
+            apk add --update ansible tar gzip curl nodejs npm
+      - aws-cli/setup
       - run:
           name: Get backend url
           command: |
@@ -366,27 +364,24 @@ jobs:
       - destroy_environment:
           workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
-  # cloudfront-update:
-  #   docker:
-  #     # Docker image here that supports AWS CLI
-  #   steps:
-  #     # Checkout code from git
-  # - node/install:
-  #     node-version: '13.8.0'
-  # - aws-cli/setup
-  #     - run:
-  #         name: Install dependencies
-  #         command: |
-  #           # your code here
-  #     - run:
-  #         name: Update cloudfront distribution
-  #         command: |
-  #           # your code here
-  #     - notify-slack
-  #     - revert-migrations
-  #     - destroy_environment:
-  #         frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-  #         backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+  cloudfront-update:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            yum -y install tar gzip curl
+      - run:
+          name: Update cloudfront distribution
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/files/cloudfront.yml \
+              --stack-name BolaUda \
+              --parameter-overrides WorkflowID="udapeople-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --tags project=udapeople
+      - notify-slack
 
   # cleanup:
   #   docker:
