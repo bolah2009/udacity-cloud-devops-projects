@@ -263,7 +263,6 @@ jobs:
       - run:
           name: Get backend url
           command: |
-            echo $BACKEND_IP
             BACKEND_IP="$(.circleci/scripts/get_stack.sh udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7})"
             echo $BACKEND_IP
             export API_URL="http://${BACKEND_IP}:3030"
@@ -331,13 +330,10 @@ jobs:
             apk add --update ansible tar gzip curl nodejs npm
       - aws-cli/setup
       - run:
-          name: Get backend url
+          name: Backend smoke test.
           command: |
             BACKEND_IP="$(.circleci/scripts/get_stack.sh udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7})"
             echo $BACKEND_IP
-      - run:
-          name: Backend smoke test.
-          command: |
             # Fetch and prepare the BACKEND_IP env var
             export API_URL="http://${BACKEND_IP}:3030"
             echo "${API_URL}"
@@ -359,10 +355,10 @@ jobs:
               return 1
             fi
       - notify-slack
-      - revert-migrations:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
-      - destroy_environment:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+      # - revert-migrations:
+      #     workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+      # - destroy_environment:
+      #     workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   cloudfront-update:
     docker:
@@ -383,24 +379,31 @@ jobs:
               --tags project=udapeople
       - notify-slack
 
-  # cleanup:
-  #   docker:
-  #     # Docker image here
-  #   steps:
-  #     # Checkout code from git
-  #     - run:
-  #         name: Get old stack workflow id
-  #         command: |
-  #           # your code here
-  #           export OldWorkflowID="the id here"
-  #           export STACKS=[] #put the list of stacks here
-  #     - run:
-  #         name: Remove old stacks and files
-  #         command: |
-  #           if [[ "${STACKS[@]}" =~ "${OldWorkflowID}" ]]
-  #           then
-  #             # your code here
-  #           fi
+  cleanup:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Remove old stacks and files
+          command: |
+            # Fetch the Old workflow ID
+            export OldWorkflowID=$(aws cloudformation \
+                    list-exports --query "Exports[?Name==\`WorkflowID\`].Value" \
+                    --no-paginate --output text)
+            echo OldWorkflowID: "${OldWorkflowID}"
+            echo CIRCLE_WORKFLOW_ID "${CIRCLE_WORKFLOW_ID:0:7}"
+
+            if [[ "${CIRCLE_WORKFLOW_ID:0:7}" != "${OldWorkflowID}" ]]
+            then
+              echo "----------  Cleaning up  -----------"
+              aws s3 rm "s3://udapeople-${OldWorkflowID}" --recursive
+              aws cloudformation delete-stack --stack-name "udapeople-backend-${OldWorkflowID}"
+              aws cloudformation delete-stack --stack-name "udapeople-frontend-${OldWorkflowID}"
+              echo "---------- Cleaning Done -----------"
+            else
+              echo "--------- Can Not Clean up ----------"
+            fi
 
 workflows:
   default:
@@ -440,8 +443,11 @@ workflows:
           context: Udacity
           requires: [run-migrations, deploy-backend]
       - smoke-test:
+          context: Udacity
           requires: [deploy-backend, deploy-frontend]
-      # - cloudfront-update:
-      #     requires: [smoke-test]
-      # - cleanup:
-      #     requires: [cloudfront-update]
+      - cloudfront-update:
+          context: Udacity
+          requires: [smoke-test]
+      - cleanup:
+          context: Udacity
+          requires: [cloudfront-update]
