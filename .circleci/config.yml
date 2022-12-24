@@ -389,8 +389,8 @@ jobs:
           name: Remove old stacks and files
           command: |
             export STACKS=($(aws cloudformation describe-stacks --query "Stacks[*].Outputs[?OutputKey=='WorkflowID'].OutputValue[]" --no-paginate --output text))
-            echo "OldWorkflowID(STACKS): ${STACKS} \n"
-            echo CIRCLE_WORKFLOW_ID "${CIRCLE_WORKFLOW_ID:0:7} \n"
+            echo -e "All STACKS (ID): ${STACKS[@]} \n"
+            echo -e "CIRCLE_WORKFLOW_ID: ${CIRCLE_WORKFLOW_ID:0:7} \n"
 
             for OldWorkflowID in ${STACKS[@]}; do
               if [[ "${CIRCLE_WORKFLOW_ID:0:7}" != "${OldWorkflowID}" ]]

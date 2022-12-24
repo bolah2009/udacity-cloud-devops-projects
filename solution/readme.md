@@ -10,5 +10,4 @@ http://d2krdwgndql8ml.cloudfront.net/#/employees
 
 4. The backend endpoint https://<Public-IP>:3030/api/status should show a healthy response. [URL04_SCREENSHOT]
 
-5. 
-
+5.
