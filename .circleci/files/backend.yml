@@ -25,7 +25,7 @@ Resources:
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      InstanceType: t2.micro
+      InstanceType: t2.medium
       SecurityGroups: [!Ref InstanceSecurityGroup]
       KeyName: udacity_demo_test
       ImageId: 'ami-0574da719dca65348'

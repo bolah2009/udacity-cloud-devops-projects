@@ -1,5 +1,11 @@
 ---
-- name: Extract artifact.tar.gz into ~/web/
+- name: Create a web directory if it does not exist
+  file:
+    path: ~/web
+    state: directory
+    mode: '0755'
+
+- name: Extract artifact.tar.gz into ~/web
   unarchive:
     src: artifact.tar.gz
     dest: ~/web/
