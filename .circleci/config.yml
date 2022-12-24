@@ -9,27 +9,31 @@ commands:
   destroy_environment:
     description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
     parameters:
-      frontend_stack_name:
-        type: string
-      backend_stack_name:
+      workflow_id:
         type: string
     steps:
       - run:
           name: Destroy environments
           when: on_fail
           command: |
-            aws cloudformation delete-stack --stack-name << parameters.frontend_stack_name >>
-            aws cloudformation delete-stack --stack-name << parameters.backend_stack_name >>
+            echo ${CIRCLE_WORKFLOW_ID:0:7}
+            ID="$(echo << parameters.workflow_id >>)"
+            aws s3 rm s3://udapeople-${ID} --recursive
+            aws cloudformation delete-stack --stack-name udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
+            aws cloudformation delete-stack --stack-name udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
 
   revert-migrations:
     description: Revert the last migration if successfully run in the current workflow.
+    parameters:
+      workflow_id:
+        type: string
     steps:
       - run:
           name: Revert migrations
           when: on_fail
           command: |
             # Curl command here to see if there was a successful migration associated with the workflow id, store result in SUCCESS variable
-            SUCCESS="$(curl --insecure https://kvdb.io/Lr5zpj7W7rui3EyzimQ6ni/migration_${CIRCLE_WORKFLOW_ID:0:7})"
+            SUCCESS="$(curl --insecure https://kvdb.io/Lr5zpj7W7rui3EyzimQ6ni/migration_<< parameters.workflow_id >>)"
             echo $SUCCESS
             if [[ $SUCCESS != 1 ]]
             then
@@ -194,8 +198,7 @@ jobs:
             - project/.circleci/ansible/inventory.txt
       - notify-slack
       - destroy_environment:
-          frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-          backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   configure-infrastructure:
     docker:
@@ -218,8 +221,7 @@ jobs:
             ansible-playbook -i inventory.txt configure-server.yml
       - notify-slack
       - destroy_environment:
-          frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-          backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   run-migrations:
     docker:
@@ -244,10 +246,10 @@ jobs:
               curl --insecure https://kvdb.io/Lr5zpj7W7rui3EyzimQ6ni/migration_${CIRCLE_WORKFLOW_ID:0:7}  -d '1'
             fi
       - notify-slack
-      - revert-migrations
+      - revert-migrations:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
       - destroy_environment:
-          frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-          backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   deploy-frontend:
     docker:
@@ -279,10 +281,10 @@ jobs:
             tar -czvf artifact-"${CIRCLE_WORKFLOW_ID:0:7}".tar.gz dist
             aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
       - notify-slack
-      - revert-migrations
+      - revert-migrations:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
       - destroy_environment:
-          frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-          backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   deploy-backend:
     docker:
@@ -313,10 +315,10 @@ jobs:
             cat inventory.txt
             ansible-playbook -i inventory.txt deploy-backend.yml
       - notify-slack
-      - revert-migrations
+      - revert-migrations:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
       - destroy_environment:
-          frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-          backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   smoke-test:
     docker:
@@ -359,19 +361,19 @@ jobs:
               return 1
             fi
       - notify-slack
-      - revert-migrations
+      - revert-migrations:
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
       - destroy_environment:
-          frontend_stack_name: udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}
-          backend_stack_name: udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
 
   # cloudfront-update:
   #   docker:
   #     # Docker image here that supports AWS CLI
   #   steps:
   #     # Checkout code from git
-      # - node/install:
-      #     node-version: '13.8.0'
-      # - aws-cli/setup
+  # - node/install:
+  #     node-version: '13.8.0'
+  # - aws-cli/setup
   #     - run:
   #         name: Install dependencies
   #         command: |
@@ -436,10 +438,10 @@ workflows:
       - run-migrations:
           context: Udacity
           requires: [configure-infrastructure]
-      - deploy-frontend:
+      - deploy-backend:
           context: Udacity
           requires: [run-migrations]
-      - deploy-backend:
+      - deploy-frontend:
           context: Udacity
           requires: [run-migrations, deploy-backend]
       - smoke-test:
