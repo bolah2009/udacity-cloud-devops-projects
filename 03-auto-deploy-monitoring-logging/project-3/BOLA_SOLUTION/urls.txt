@@ -1,0 +1,5 @@
+1. Public Url to GitHub repository (not private) [URL01] https://github.com/bolah2009/udacity-cdond-c3
+2. Public URL for your S3 Bucket (aka, your green candidate front-end) [URL02] http://udapeople-cf3f6c6.s3-website-us-east-1.amazonaws.com/
+3. Evidence of deployed and functioning front-end application in CloudFront. URL03_SCREENSHOT http://d2krdwgndql8ml.cloudfront.net/#/employees
+4. Evidence of healthy back-end application. URL04_SCREENSHOT http://ec2-44-192-106-176.compute-1.amazonaws.com:3030/api/status or  http://44.192.106.176:3030/api/status
+5. Evidence of Prometheus Server. URL05_SCREENSHOT http://ec2-100-27-7-141.compute-1.amazonaws.com:9090/graph
