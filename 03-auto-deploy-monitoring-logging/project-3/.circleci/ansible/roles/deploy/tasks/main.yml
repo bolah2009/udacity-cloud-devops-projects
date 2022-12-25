@@ -12,9 +12,9 @@
 
 - name: Start the web server
   shell: |
-      cd ~/web/backend
-      npm install
-      pm2 stop default
-      pm2 start npm -- start
+    cd ~/web/backend
+    npm install
+    pm2 stop default
+    pm2 start npm -- start
   args:
     executable: /bin/bash
