@@ -1,0 +1,15 @@
+global:
+  resolve_timeout: 1m
+  slack_api_url: 'https://hooks.slack.com/services/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'
+
+route:
+  receiver: 'slack-notifications'
+  group_by: [alertname, datacenter, app]
+
+receivers:
+  - name: slack-notifications
+    slack_configs:
+      - channel: '#monitoring_instances'
+        title: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+        text: "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}"
+        send_resolved: true

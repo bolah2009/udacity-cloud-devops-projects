@@ -1,0 +1,342 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create a basic EC2 instance with SSH access
+Resources:
+  BolaRoleForS3Access:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Description: Provides read only access to all S3 buckets.
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName} BolaRoleForS3Access
+        - Key: Description
+          Value: IAM Role to allow EC2 to access S3 buckets
+
+  BolaServerInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Roles:
+        - !Ref BolaRoleForS3Access
+
+  PrometheusSecGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access and ports for Prometheus
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9093
+          ToPort: 9093
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9100
+          ToPort: 9100
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-Prometheus-SG'
+        - Key: Purpose
+          Value: EC2SecGroup
+        - Key: Project
+          Value: Udacity
+
+  PrometheusEC2:
+    Type: 'AWS::EC2::Instance'
+    # DependsOn:
+    #   [NodeExporterEC21, NodeExporterEC22, NodeExporterEC23, NodeExporterEC24]
+    Properties:
+      IamInstanceProfile: !Ref BolaServerInstanceProfile
+      SecurityGroups:
+        - !Ref PrometheusSecGroup
+      KeyName: udacity_demo_test
+      ImageId: 'ami-0574da719dca65348'
+      InstanceType: t2.medium
+      BlockDeviceMappings:
+        - DeviceName: '/dev/sdk'
+          Ebs:
+            VolumeSize: 10
+      Tags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-prometheus'
+        - Key: Purpose
+          Value: EC2 instance for prometheus
+        - Key: Project
+          Value: Udacity
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update -y
+          apt-get install awscli -y
+          apt-get install net-tools -y
+
+          echo "create a prometheus user run specific services"
+          useradd --no-create-home prometheus
+
+          echo "create a directory to host Prometheus configuration"
+          echo "and another one to host its data"
+          mkdir -p /etc/prometheus
+          mkdir -p /var/lib/prometheus
+
+          echo  "dowloading, installing and setting up Prometheus."
+          wget https://github.com/prometheus/prometheus/releases/download/v2.41.0/prometheus-2.41.0.linux-amd64.tar.gz
+          tar xvfz prometheus-2.41.0.linux-amd64.tar.gz
+
+          cp prometheus-2.41.0.linux-amd64/prometheus /usr/local/bin
+          cp prometheus-2.41.0.linux-amd64/promtool /usr/local/bin/
+          cp -r prometheus-2.41.0.linux-amd64/consoles /etc/prometheus
+          cp -r prometheus-2.41.0.linux-amd64/console_libraries /etc/prometheus
+
+          cp prometheus-2.41.0.linux-amd64/promtool /usr/local/bin/
+          rm -rf prometheus-2.41.0.linux-amd64*
+
+          echo "Copying prometheus files from s3 bucket"
+          sudo aws s3 cp s3://bola-prometheus-stack-files/prometheus.yml /etc/prometheus/.
+          sudo aws s3 cp s3://bola-prometheus-stack-files/prometheus.service /etc/systemd/system/.
+          sudo aws s3 cp s3://bola-prometheus-stack-files/alertmanager.yml /etc/prometheus/.
+          sudo aws s3 cp s3://bola-prometheus-stack-files/alertmanager.service /etc/systemd/system/.
+          sudo aws s3 cp s3://bola-prometheus-stack-files/rules.yml /etc/prometheus/.
+
+          sudo chown prometheus:prometheus /usr/local/bin/prometheus
+          sudo chown prometheus:prometheus /usr/local/bin/promtool
+          sudo chown -R prometheus:prometheus /etc/prometheus/consoles
+          sudo chown -R prometheus:prometheus /etc/prometheus/console_libraries
+          sudo chown -R prometheus:prometheus /var/lib/prometheus
+          sudo chown -R prometheus:prometheus /etc/prometheus
+
+          echo  "dowloading, installing and setting up Alertmanager."
+          wget https://github.com/prometheus/alertmanager/releases/download/v0.21.0/alertmanager-0.21.0.linux-amd64.tar.gz
+          tar xvfz alertmanager-0.21.0.linux-amd64.tar.gz
+
+          sudo cp alertmanager-0.21.0.linux-amd64/alertmanager /usr/local/bin
+          sudo cp alertmanager-0.21.0.linux-amd64/amtool /usr/local/bin/
+          sudo mkdir /var/lib/alertmanager
+          rm -rf alertmanager-0.21.0.linux-amd64*
+
+          sudo useradd --no-create-home node_exporter
+
+          echo  "dowloading, installing and setting up Node Exporter."
+          wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+          tar xzf node_exporter-1.0.1.linux-amd64.tar.gz
+          sudo cp node_exporter-1.0.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+          rm -rf node_exporter-1.0.1.linux-amd64*
+
+          echo "Copying prometheus files from s3 bucket"
+          sudo aws s3 cp s3://bola-prometheus-stack-files/node-exporter.service /etc/systemd/system/.
+
+          echo "starting prometheus server ..."
+          sudo systemctl daemon-reload
+          sudo systemctl enable node-exporter
+          sudo systemctl enable alertmanager
+          sudo systemctl enable prometheus
+          sudo systemctl start alertmanager
+          sudo systemctl start node-exporter
+          sudo systemctl start prometheus
+          sudo systemctl status prometheus --no-pager
+          sudo systemctl status alertmanager --no-pager
+          sudo systemctl status node-exporter --no-pager
+          echo ">>> !!! <<< DONE >>> !!! <<<"
+
+  # NodeExporterEC21:
+  #   Type: 'AWS::EC2::Instance'
+  #   Properties:
+  #     IamInstanceProfile: !Ref BolaServerInstanceProfile
+  #     SecurityGroups:
+  #       - !Ref PrometheusSecGroup
+  #     KeyName: udacity_demo_test
+  #     ImageId: 'ami-0574da719dca65348'
+  #     InstanceType: t2.micro
+  #     BlockDeviceMappings:
+  #       - DeviceName: '/dev/sdk'
+  #         Ebs:
+  #           VolumeSize: 5
+  #     Tags:
+  #       - Key: Name
+  #         Value: !Sub '${AWS::StackName}-node-explorer1'
+  #       - Key: Purpose
+  #         Value: EC2 instance for prometheus node explorer
+  #       - Key: Project
+  #         Value: Udacity
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash
+  #         apt-get update -y
+  #         apt-get install awscli -y
+  #         apt-get install net-tools -y
+
+  #         sudo useradd --no-create-home node_exporter
+
+  #         echo  "dowloading, installing and setting up Node Exporter."
+  #         wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+  #         tar xzf node_exporter-1.0.1.linux-amd64.tar.gz
+  #         sudo cp node_exporter-1.0.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+  #         rm -rf node_exporter-1.0.1.linux-amd64*
+
+  #         echo "Copying prometheus files from s3 bucket"
+  #         sudo aws s3 cp s3://bola-prometheus-stack-files/node-exporter.service /etc/systemd/system/.
+
+  #         sudo systemctl daemon-reload
+  #         sudo systemctl enable node-exporter
+  #         sudo systemctl start node-exporter
+  #         sudo systemctl status node-exporter --no-pager
+
+  # NodeExporterEC22:
+  #   Type: 'AWS::EC2::Instance'
+  #   DependsOn: NodeExporterEC21
+  #   Properties:
+  #     IamInstanceProfile: !Ref BolaServerInstanceProfile
+  #     SecurityGroups:
+  #       - !Ref PrometheusSecGroup
+  #     KeyName: udacity_demo_test
+  #     ImageId: 'ami-0574da719dca65348'
+  #     InstanceType: t2.micro
+  #     BlockDeviceMappings:
+  #       - DeviceName: '/dev/sdk'
+  #         Ebs:
+  #           VolumeSize: 5
+  #     Tags:
+  #       - Key: Name
+  #         Value: !Sub '${AWS::StackName}-node-explorer2'
+  #       - Key: Purpose
+  #         Value: EC2 instance for prometheus node explorer
+  #       - Key: Project
+  #         Value: Udacity
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash
+  #         apt-get update -y
+  #         apt-get install awscli -y
+  #         apt-get install net-tools -y
+
+  #         sudo useradd --no-create-home node_exporter
+
+  #         echo  "dowloading, installing and setting up Node Exporter."
+  #         wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+  #         tar xzf node_exporter-1.0.1.linux-amd64.tar.gz
+  #         sudo cp node_exporter-1.0.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+  #         rm -rf node_exporter-1.0.1.linux-amd64*
+
+  #         echo "Copying prometheus files from s3 bucket"
+  #         sudo aws s3 cp s3://bola-prometheus-stack-files/node-exporter.service /etc/systemd/system/.
+
+  #         sudo systemctl daemon-reload
+  #         sudo systemctl enable node-exporter
+  #         sudo systemctl start node-exporter
+  #         sudo systemctl status node-exporter --no-pager
+
+  # NodeExporterEC23:
+  #   Type: 'AWS::EC2::Instance'
+  #   DependsOn: NodeExporterEC22
+  #   Properties:
+  #     IamInstanceProfile: !Ref BolaServerInstanceProfile
+  #     SecurityGroups:
+  #       - !Ref PrometheusSecGroup
+  #     KeyName: udacity_demo_test
+  #     ImageId: 'ami-0574da719dca65348'
+  #     InstanceType: t2.micro
+  #     BlockDeviceMappings:
+  #       - DeviceName: '/dev/sdk'
+  #         Ebs:
+  #           VolumeSize: 5
+  #     Tags:
+  #       - Key: Name
+  #         Value: !Sub '${AWS::StackName}-node-explorer3'
+  #       - Key: Purpose
+  #         Value: EC2 instance for prometheus node explorer
+  #       - Key: Project
+  #         Value: Udacity
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash
+  #         apt-get update -y
+  #         apt-get install awscli -y
+  #         apt-get install net-tools -y
+
+  #         sudo useradd --no-create-home node_exporter
+
+  #         echo  "dowloading, installing and setting up Node Exporter."
+  #         wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+  #         tar xzf node_exporter-1.0.1.linux-amd64.tar.gz
+  #         sudo cp node_exporter-1.0.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+  #         rm -rf node_exporter-1.0.1.linux-amd64*
+
+  #         echo "Copying prometheus files from s3 bucket"
+  #         sudo aws s3 cp s3://bola-prometheus-stack-files/node-exporter.service /etc/systemd/system/.
+
+  #         sudo systemctl daemon-reload
+  #         sudo systemctl enable node-exporter
+  #         sudo systemctl start node-exporter
+  #         sudo systemctl status node-exporter --no-pager
+
+  # NodeExporterEC24:
+  #   Type: 'AWS::EC2::Instance'
+  #   DependsOn: NodeExporterEC23
+  #   Properties:
+  #     IamInstanceProfile: !Ref BolaServerInstanceProfile
+  #     SecurityGroups:
+  #       - !Ref PrometheusSecGroup
+  #     KeyName: udacity_demo_test
+  #     ImageId: 'ami-0574da719dca65348'
+  #     InstanceType: t2.micro
+  #     BlockDeviceMappings:
+  #       - DeviceName: '/dev/sdk'
+  #         Ebs:
+  #           VolumeSize: 5
+  #     Tags:
+  #       - Key: Name
+  #         Value: !Sub '${AWS::StackName}-node-explorer4'
+  #       - Key: Purpose
+  #         Value: EC2 instance for prometheus node explorer
+  #       - Key: Project
+  #         Value: Udacity
+  #     UserData:
+  #       Fn::Base64: !Sub |
+  #         #!/bin/bash
+  #         apt-get update -y
+  #         apt-get install awscli -y
+  #         apt-get install net-tools -y
+
+  #         sudo useradd --no-create-home node_exporter
+
+  #         echo  "dowloading, installing and setting up Node Exporter."
+  #         wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+  #         tar xzf node_exporter-1.0.1.linux-amd64.tar.gz
+  #         sudo cp node_exporter-1.0.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+  #         rm -rf node_exporter-1.0.1.linux-amd64*
+
+  #         echo "Copying prometheus files from s3 bucket"
+  #         sudo aws s3 cp s3://bola-prometheus-stack-files/node-exporter.service /etc/systemd/system/.
+
+  #         sudo systemctl daemon-reload
+  #         sudo systemctl enable node-exporter
+  #         sudo systemctl start node-exporter
+  #         sudo systemctl status node-exporter --no-pager
+
+Outputs:
+  PrometheusEC2PublicIp:
+    Description: A reference to the created EC2 Instance PublicIP
+    Value: !GetAtt PrometheusEC2.PublicIp
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-PublicIP'
+
+  PrometheusEC2PublicDnsName:
+    Description: A reference to the created EC2 Instance PublicDNSName
+    Value: !Join ['', ['http://', !GetAtt PrometheusEC2.PublicDnsName]]
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2-PublicDNSName'
